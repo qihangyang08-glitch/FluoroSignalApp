@@ -1,16 +1,17 @@
 package com.example.fluorosignalapp
 
 import android.util.Log
-import kotlinx.coroutines.delay
+import org.opencv.core.Core
+import org.opencv.core.Mat
+import org.opencv.core.MatOfDouble
+import org.opencv.imgcodecs.Imgcodecs
 import java.io.File
 
 /**
  * ImageAnalyzer 负责对荧光图像进行分析。
  *
- * 当前版本是一个"伪实现"（Mock Implementation），用于搭建完整的业务流程。
- * 它会模拟分析过程的耗时，并返回固定的测试数据。
- *
- * 未来，这个类将被替换为真正的图像处理和分析算法。
+ * 使用 OpenCV 库对绿色荧光通道进行统计分析，
+ * 计算均值、标准差、信噪比等关键指标。
  */
 class ImageAnalyzer {
 
@@ -19,14 +20,14 @@ class ImageAnalyzer {
     /**
      * 分析给定的图像文件，返回分析结果。
      *
-     * 【当前实现】这是一个伪实现，用于测试完整流程：
-     * - 模拟耗时的分析过程（延迟2秒）
-     * - 返回固定的测试数据
-     *
-     * 【未来实现】将包含真实的图像处理算法：
-     * - 读取图像像素数据
-     * - 计算统计指标（均值、标准差、信噪比等）
-     * - 进行荧光信号分析
+     * 实现步骤：
+     * 1. 使用 OpenCV 加载图像
+     * 2. 分离 BGR 颜色通道
+     * 3. 提取绿色通道
+     * 4. 计算统计指标（均值、标准差）
+     * 5. 计算派生指标（SNR、方差）
+     * 6. 计算最小/最大像素值
+     * 7. 释放所有 Mat 对象
      *
      * @param imageFile 要分析的图像文件
      * @return AnalysisResult 包含各项分析指标的结果对象
@@ -40,37 +41,94 @@ class ImageAnalyzer {
             throw IllegalArgumentException("Image file does not exist: ${imageFile.absolutePath}")
         }
 
-        // 【伪实现】模拟分析过程的耗时（2秒）
-        // 在实际实现中，这里会进行真实的图像处理和计算
-        delay(2000)
+        // 用于存储需要释放的 Mat 对象
+        val matsToRelease = mutableListOf<Mat>()
 
-        // 从文件名中提取基础名（去除扩展名）
-        // 例如："FLUORO_20250111_143025123.jpg" -> "FLUORO_20250111_143025123"
-        val baseName = imageFile.nameWithoutExtension
+        try {
+            // 1. 加载图像
+            val image = Imgcodecs.imread(imageFile.absolutePath)
+            if (image.empty()) {
+                throw IllegalArgumentException("Failed to load image: ${imageFile.absolutePath}")
+            }
+            matsToRelease.add(image)
+            Log.d(TAG, "Image loaded successfully: ${image.cols()}x${image.rows()}")
 
-        Log.d(TAG, "Extracted base name: $baseName")
+            // 2. 颜色通道分离
+            val channels = ArrayList<Mat>()
+            Core.split(image, channels)
 
-        // 【伪实现】返回固定的测试数据
-        // 在实际实现中，这些值将从真实的图像分析中计算得出
-        val result = AnalysisResult(
-            imageName = baseName,
-            timestamp = System.currentTimeMillis(),
-            mean = 125.7,           // 平均像素值
-            stdDev = 15.3,          // 标准差
-            snr = 8.21,             // 信噪比 (Signal-to-Noise Ratio)
-            variance = 234.09,      // 方差
-            minPixelValue = 10,     // 最小像素值
-            maxPixelValue = 240     // 最大像素值
-        )
+            if (channels.size != 3) {
+                throw IllegalStateException("Expected 3 channels (BGR), got ${channels.size}")
+            }
 
-        Log.i(TAG, "Analysis completed for: ${imageFile.name}, SNR: ${result.snr}")
+            // OpenCV 使用 BGR 顺序，所以：
+            // channels[0] = Blue
+            // channels[1] = Green
+            // channels[2] = Red
+            matsToRelease.addAll(channels)
 
-        return result
+            // 3. 选取绿色通道
+            val greenChannel = channels[1]
+            Log.d(TAG, "Green channel extracted")
+
+            // 4. 计算核心指标（均值和标准差）
+            val mean = MatOfDouble()
+            val stdDev = MatOfDouble()
+            Core.meanStdDev(greenChannel, mean, stdDev)
+
+            val meanValue = mean.get(0, 0)[0]
+            val stdDevValue = stdDev.get(0, 0)[0]
+
+            matsToRelease.add(mean)
+            matsToRelease.add(stdDev)
+
+            Log.d(TAG, "Mean: $meanValue, StdDev: $stdDevValue")
+
+            // 5. 计算派生指标
+            val snrValue = if (stdDevValue != 0.0) {
+                meanValue / stdDevValue
+            } else {
+                Double.MAX_VALUE // 如果标准差为0，SNR理论上无限大
+            }
+            val varianceValue = stdDevValue * stdDevValue
+
+            // 6. 计算最小/最大像素值
+            val minMaxLocResult = Core.minMaxLoc(greenChannel)
+            val minPixel = minMaxLocResult.minVal.toInt()
+            val maxPixel = minMaxLocResult.maxVal.toInt()
+
+            Log.d(TAG, "Min pixel: $minPixel, Max pixel: $maxPixel")
+
+            // 7. 从文件名中提取基础名（去除扩展名）
+            val baseName = imageFile.nameWithoutExtension
+            Log.d(TAG, "Extracted base name: $baseName")
+
+            // 8. 构建并返回结果对象
+            val result = AnalysisResult(
+                imageName = baseName,
+                timestamp = System.currentTimeMillis(),
+                mean = meanValue,
+                stdDev = stdDevValue,
+                snr = snrValue,
+                variance = varianceValue,
+                minPixelValue = minPixel,
+                maxPixelValue = maxPixel
+            )
+
+            Log.i(TAG, "Analysis completed for: ${imageFile.name}, SNR: ${result.snr}")
+
+            return result
+
+        } finally {
+            // 9. 内存管理：释放所有 Mat 对象
+            matsToRelease.forEach { mat ->
+                try {
+                    mat.release()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error releasing Mat: ${e.message}")
+                }
+            }
+            Log.d(TAG, "Released ${matsToRelease.size} Mat objects")
+        }
     }
-
-    // 未来可以在这里添加其他辅助方法，例如：
-    // - private fun loadImagePixels(file: File): IntArray
-    // - private fun calculateMean(pixels: IntArray): Double
-    // - private fun calculateStdDev(pixels: IntArray, mean: Double): Double
-    // - private fun calculateSNR(mean: Double, stdDev: Double): Double
 }
