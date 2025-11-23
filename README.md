@@ -113,5 +113,7 @@ class ImageAnalyzer {
     *   你可以随时运行 App 来测试你的分析逻辑是否能与现有流程无缝对接。
 
 ---
-
+修改代码有两处：
+1.FluoroApp.kt
+2.ImageAnalyzer.kt
 
