@@ -2,6 +2,7 @@ package com.example.fluorosignalapp
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,7 +10,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
@@ -41,6 +44,13 @@ fun ResultScreen(
         return
     }
 
+    val qualityColor = when (result.quality) {
+        ImageQuality.GOOD -> Color(0xFF4CAF50) // Green
+        ImageQuality.WARNING -> Color(0xFFFFC107) // Amber
+        ImageQuality.BAD -> Color(0xFFF44336) // Red
+        ImageQuality.UNKNOWN -> Color.Gray
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("分析报告") })
@@ -58,16 +68,25 @@ fun ResultScreen(
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
+                    modifier = Modifier
+                        .background(qualityColor.copy(alpha = 0.1f))
+                        .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("信噪比 (SNR): ${result.snr}", fontSize = 22.sp)
+                    Text(
+                        text = result.diagnosis,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = qualityColor
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("信噪比 (SNR): ${String.format("%.2f", result.snr)}", fontSize = 18.sp)
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(32.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("均值: ${result.mean}")
-                        Text("标准差: ${result.stdDev}")
+                        Text("均值: ${String.format("%.2f", result.mean)}")
+                        Text("标准差: ${String.format("%.2f", result.stdDev)}")
                     }
                 }
             }
@@ -78,8 +97,9 @@ fun ResultScreen(
             ) {
                 val data = mapOf(
                     "图片名称" to result.imageName,
-                    "时间戳" to result.timestamp.toString(), // Corrected: Ensure timestamp is a String
-                    "方差" to result.variance.toString(),
+                    "时间戳" to result.timestamp.toString(),
+                    "质量评估" to result.quality.name,
+                    "方差" to String.format("%.2f", result.variance),
                     "最小像素" to result.minPixelValue.toString(),
                     "最大像素" to result.maxPixelValue.toString()
                 )
@@ -89,7 +109,7 @@ fun ResultScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(entry.key)
+                        Text(entry.key, fontWeight = FontWeight.SemiBold)
                         Text(entry.value)
                     }
                 }

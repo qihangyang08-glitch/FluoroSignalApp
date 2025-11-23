@@ -53,5 +53,15 @@ data class AnalysisResult(
     /**
      * 最大像素值
      */
-    val maxPixelValue: Int
+    val maxPixelValue: Int,
+
+    val quality: ImageQuality = ImageQuality.UNKNOWN,
+    val diagnosis: String = ""
 )
+
+enum class ImageQuality {
+    GOOD,
+    WARNING,
+    BAD,
+    UNKNOWN
+}

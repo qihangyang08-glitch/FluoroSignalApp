@@ -29,6 +29,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
+import com.example.fluorosignalapp.data.diagnosis.DiagnosisService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -249,15 +250,17 @@ fun CameraUI(
                                 Log.d("APP_DEBUG", "分析开始，文件: ${imageFile.name}")
                                 try {
                                     val analyzer = ImageAnalyzer()
-                                    val analysisResult = analyzer.analyze(imageFile)
-                                    Log.d("APP_DEBUG", "分析成功，结果SNR: ${analysisResult.snr}")
+                                    val rawResult = analyzer.analyze(imageFile)
+                                    val finalResult = DiagnosisService.diagnose(rawResult)
+
+                                    Log.d("APP_DEBUG", "分析成功，结果SNR: ${finalResult.snr}")
                                     Log.d("APP_DEBUG", "即将调用 archiveAnalyzedData...")
-                                    FileManager.archiveAnalyzedData(imageFile, analysisResult)
+                                    FileManager.archiveAnalyzedData(imageFile, finalResult)
                                     Log.d("APP_DEBUG", "archiveAnalyzedData 调用完成。")
-                                    Toast.makeText(context, "分析完成！SNR: ${analysisResult.snr}", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, "分析完成！诊断: ${finalResult.diagnosis}", Toast.LENGTH_LONG).show()
 
                                     // Use the ViewModel to set the result and navigate
-                                    sharedViewModel.setAnalysisResult(analysisResult)
+                                    sharedViewModel.setAnalysisResult(finalResult)
                                     navController.navigate(Routes.RESULT)
                                 } catch (e: Exception) {
                                     Log.e("CameraUI", "Analysis failed", e)

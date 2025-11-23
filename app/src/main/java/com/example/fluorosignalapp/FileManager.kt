@@ -44,9 +44,10 @@ object FileManager {
     suspend fun saveImageToPending(imageBytes: ByteArray): File = withContext(Dispatchers.IO) {
         checkInitialized()
         val baseName = generateUniqueFileNameBase()
-        val imageFile = File(pendingDir, "$baseName.jpg")
+        // Corrected: Save as .png
+        val imageFile = File(pendingDir, "$baseName.png")
         imageFile.writeBytes(imageBytes)
-        Log.i(TAG, "Image saved to pending: ${imageFile.absolutePath}")
+        Log.i(TAG, "PNG image saved to pending: ${imageFile.absolutePath}")
         imageFile
     }
 
@@ -65,32 +66,27 @@ object FileManager {
 
     fun getLatestPendingImage(): File? {
         checkInitialized()
-        val jpgFiles = pendingDir.listFiles { file ->
-            file.isFile && file.extension.equals("jpg", ignoreCase = true)
+        // Corrected: Look for .png files
+        val pngFiles = pendingDir.listFiles { file ->
+            file.isFile && file.extension.equals("png", ignoreCase = true)
         }
-        if (jpgFiles.isNullOrEmpty()) {
+        if (pngFiles.isNullOrEmpty()) {
             return null
         }
-        return jpgFiles.maxByOrNull { it.lastModified() }
+        return pngFiles.maxByOrNull { it.lastModified() }
     }
 
     suspend fun archiveAnalyzedData(pendingImageFile: File, result: AnalysisResult) = withContext(Dispatchers.IO) {
         checkInitialized()
-
-        // The baseName is the filename without the extension, e.g., "FLUORO_20231027_123456"
         val baseName = pendingImageFile.nameWithoutExtension
 
-        // CRITICAL FIX: Ensure the result object has the final, correct imageName before saving.
+        // Corrected: Ensure the result object has the final .png imageName before saving.
         val consistentResult = result.copy(imageName = pendingImageFile.name)
 
         Log.i(TAG, "Archiving analyzed data for: $baseName")
 
-        // 1. Save the Analysis Result (JSON)
         saveAnalysisResult(baseName, consistentResult)
-
-        // 2. Move the Image File (JPG)
         movePendingImageToHistory(pendingImageFile)
-
         Log.i(TAG, "Successfully archived: $baseName")
     }
 
