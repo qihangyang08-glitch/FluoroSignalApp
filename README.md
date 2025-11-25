@@ -1,92 +1,101 @@
 
 
-# FluoroSignalApp - 荧光信号测量与分析App
+# FluoroSignalApp - 智能手机荧光信号定量分析系统
 
-![App Icon](https://img.shields.io/badge/platform-Android-brightgreen.svg)
-![Kotlin](https://img.shields.io/badge/Kotlin-1.9.0-blue.svg)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-1.6.0-blueviolet.svg)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.9.0-orange.svg)
-![Status](https://img.shields.io/badge/status-Feature%20Complete-green.svg)
+![Platform](https://img.shields.io/badge/Platform-Android-green.svg)
+![Language](https://img.shields.io/badge/Language-Kotlin_1.9-blue.svg)
+![UI](https://img.shields.io/badge/UI-Jetpack_Compose-purple.svg)
+![Architecture](https://img.shields.io/badge/Architecture-MVVM-orange.svg)
+![Status](https://img.shields.io/badge/Status-Scientific_Raw_Ready-red.svg)
 
-本项目旨在开发一款科研级安卓应用，将智能手机转化为便携式荧光检测仪。应用通过底层相机控制采集高保真图像，利用 OpenCV 进行本地分析，并提供智能化的数据质量诊断。
-
----
-
-## 🚀 最新更新 (Latest Updates)
-
-### 🌟 1. 智能数据诊断系统 (Smart Diagnosis)
-为了解决非专业用户“看不懂参数”的痛点，我们引入了**“AI 医生”诊断模块**：
-*   **自动体检**：系统会自动检查过曝 (Overexposure)、欠曝 (Underexposure)、信噪比 (SNR) 低等问题。
-*   **人话建议**：不再只显示冷冰冰的数字，而是直接给出建议（如：“⚠️ 严重过曝，请降低 ISO”）。
-*   **视觉反馈**：分析报告卡片会自动变色（🟢优质 / 🟡警告 / 🔴废片），一目了然。
-
-### 💎 2. 高精度无损数据流 (Lossless Data Flow)
-*   **PNG 格式标准化**：为了消除 JPEG 压缩伪影对线性分析的影响，全链路数据流现已强制使用 **PNG 无损格式**。
-*   **底层字节流读取**：`ImageAnalyzer` 现通过 OpenCV 底层字节流直接解码，绕过了安卓系统的自动缩放和色彩转换，确保了分析结果的**高度可重复性**和**线性度**。
+本项目旨在开发一款便携、低成本但具备**科研级精度**的荧光检测工具。通过深入 Android 底层相机控制，屏蔽系统自动处理算法，配合 OpenCV 图像分析，实现对荧光样本浓度的线性定量分析。
 
 ---
 
-## 📱 核心功能 (Key Features)
+## 🌟 核心亮点 (Key Highlights)
 
-*   **📷 专业采集**:
-    *   基于 `Camera2` API，支持手动调节 **ISO** 和 **曝光时间**，并具备**自动曝光锁定**功能。
-    *   **所见即所得**：预览画面无拉伸，并在拍摄时保存为无损格式。
-*   **🧬 图像分析**:
-    *   自动提取绿色荧光通道。
-    *   计算均值 (Mean)、标准差 (StdDev)、信噪比 (SNR)。
-    *   **[待实现]** 阈值分割与有效区域计算。
-*   **🩺 智能报告**:
-    *   自动生成包含诊断建议的分析报告。
-    *   支持一键导出 **CSV 数据表**，内含详细指标与诊断结论，方便后续科研统计。
-*   **📂 数据管理**:
-    *   自动归档：`PendingAnalysis` (待分析) -> `AnalysisHistory` (已归档)。
-    *   从相册导入：支持将外部图片无缝导入分析流程。
+### 1. 🧪 纯净的“一手”数据采集 (Scientific Data Acquisition)
+为了解决普通手机拍照“非线性”、“美颜涂抹”导致实验数据失真的问题，我们重写了相机底层逻辑：
+*   **ISP 算法屏蔽**：在代码层面强制关闭了 Android 系统的 **色调映射 (Tone Mapping)**、**自动降噪 (Noise Reduction)**、**边缘增强** 和 **自动白平衡**。
+*   **线性响应**：确保传感器捕获的光子数量与像素数值呈线性关系（R² > 0.98），这是定量分析的基础。
+*   **无损存储**：全链路使用 **PNG 无损格式**，杜绝 JPEG 压缩带来的随机噪声。
 
----
+### 2. 🎛️ 精细化拍摄控制 (Precision Control)
+专为实验室场景设计的交互界面：
+*   **全手动参数**：支持手动锁定 **ISO (感光度)** 和 **曝光时间 (Exposure Time)**。
+*   **微调步进 (Fine-tuning)**：新增 **[+] / [-] 精确调节按钮**。ISO 步进 50，曝光时间步进 1ms，确保实验条件可被精确复制。
+*   **参数锁定**：拍摄瞬间强制锁定自动曝光 (AE Lock)，防止画面亮度波动。
 
-## 🛠️ 技术架构 (Architecture)
+### 3. 🩺 智能数据诊断 (Smart Diagnosis)
+不仅仅输出冷冰冰的数字，App 内置了“AI 医生”逻辑：
+*   **质量评估**：自动判断照片是否 **过曝 (Saturation)**、**欠曝** 或 **信噪比过低**。
+*   **人话建议**：直接在报告中给出建议（如：“⚠️ 严重过曝，请降低 ISO”），降低医学生的上手门槛。
+*   **可视化反馈**：分析卡片根据数据质量自动变色（🟢优质 / 🟡警告 / 🔴废片）。
 
-*   **UI 层**: Jetpack Compose (CameraScreen, ResultScreen)
-*   **逻辑层**:
-    *   `CameraService`: 负责硬件控制与无损图像捕获。
-    *   `DiagnosisService`: **[新增]** 负责将原始计算数据转化为诊断建议（解耦设计）。
-    *   `ImageAnalyzer`: 负责 OpenCV 核心算法。
-*   **数据层**: `FileManager`, `AnalysisResult` (Serializable).
+### 4. 📂 自动化数据流 (Automated Workflow)
+*   **闭环管理**：拍摄 -> `PendingAnalysis` (待分析) -> 分析 -> `AnalysisHistory` (归档)。
+*   **全量导出**：支持一键导出包含所有通道数据（R/G/B）、统计指标（偏度/峰度）及诊断结论的 **CSV 报表**，方便导入 Excel/SPSS 进行二次分析。
 
 ---
 
-## 🎯 协作任务：完善图像处理算法 (Collaborator's Task)
+## 🛠️ 技术架构 (Technical Architecture)
 
-**你的任务是专注于 `ImageAnalyzer.kt` 中的核心算法实现。**
+项目采用现代 Android 开发技术栈：
 
-由于架构升级，你现在的开发环境更加纯净和稳定：
-
-1.  **输入更有保障**：你接收到的 `imageFile` 保证是无损的 PNG 格式，且通过字节流读取，无需担心压缩噪声。
-2.  **无需关心业务逻辑**：你**不需要**编写判断“过曝”或“好坏”的代码。你只需要算出准确的数学指标（Mean, Max, SNR），后续的 `DiagnosisService` 会自动处理诊断逻辑。
-
-### 📝 你需要做的是：
-
-在 `ImageAnalyzer.kt` 中，将目前的“全图平均”逻辑升级为**“有效区域分析”**：
-
-1.  **加载图片**: 保持现有的字节流读取方式（已写好）。
-2.  **阈值分割 (Thresholding)**: 使用 `Imgproc.threshold` 生成掩膜 (Mask)，剔除黑色背景。
-3.  **计算指标**: 使用带 Mask 的 `Core.meanStdDev` 计算仅针对光斑区域的均值和标准差。
-4.  **返回结果**: 将计算出的数值填充到 `AnalysisResult` 中返回即可。（`quality` 和 `diagnosis` 字段使用默认值即可，后续服务会填充）。
+| 模块 | 技术选型 | 职责说明 |
+| :--- | :--- | :--- |
+| **UI 层** | **Jetpack Compose** | 声明式 UI，实现流畅的实时预览与交互 |
+| **导航** | **Navigation-Compose** | 管理相机页与结果页的无缝跳转 |
+| **相机层** | **Camera2 API** | 底层硬件控制，实现“科研模式”拍摄 |
+| **逻辑层** | **Kotlin Coroutines** | 异步处理文件读写与耗时计算 |
+| **数据层** | **Kotlinx Serialization** | 复杂数据结构（分析结果）的序列化存储 |
+| **算法层** | **OpenCV (Integration)** | (接口已预留) 负责 ROI 分割与多通道统计 |
 
 ---
 
-## ⚙️ 如何开始
+## 📸 功能演示 (Features)
 
-1.  **拉取最新代码**:
+### 拍摄界面 (Camera Screen)
+*   **实时预览**：所见即所得，无画面拉伸。
+*   **控制面板**：
+    *   ISO 滑块 + 微调按钮
+    *   曝光时间滑块 + 微调按钮
+    *   **[选择]**：从相册导入外部图片分析
+    *   **[拍照]**：获取无损 PNG
+    *   **[分析]**：触发后台算法流程
+
+### 结果界面 (Result Screen)
+*   **核心指标**：突出显示绿色通道均值 (Mean G)。
+*   **诊断卡片**：显示数据质量评分与操作建议。
+*   **详细数据**：折叠展示多通道均值、方差、偏度等高级统计量。
+*   **[导出]**：调用系统分享表单发送 CSV 报告。
+
+---
+
+## 🤝 协作指南 (For Contributors)
+
+当前分支 **`num5`** (或最新开发分支) 已完成以下工作，等待算法核心接入：
+
+1.  **Data Model Ready**: `AnalysisResult.kt` 已升级，预埋了 `meanR/G/B`, `skewness`, `warnings`, `roi` 等所有高级字段。
+2.  **UI Ready**: 结果页面已适配新模型，能够动态显示所有新字段。
+3.  **Source Ready**: `CameraService` 产出的图片已确认为线性无损 PNG。
+
+**接下来的工作 (To-Do):**
+*   [ ] 将最新的 `ImageAnalyzer.kt` (包含 ROI 掩膜与多通道逻辑) 合并入项目。
+*   [ ] 验证算法计算出的 `meanG` 与拍摄参数的线性关系。
+
+---
+
+## 📦 如何构建与运行
+
+1.  克隆仓库：
     ```bash
-    git fetch origin
-    git checkout feature/diagnosis  # 或者 master，取决于合并情况
+    git clone [Repo URL]
     ```
-2.  **关注文件**:
-    *   核心算法：`data/analysis/ImageAnalyzer.kt`
-3.  **运行测试**:
-    *   使用提供的标定样本图片进行测试，观察高浓度样本的均值是否呈现线性增长。
+2.  打开 Android Studio，等待 Gradle 同步完成。
+3.  连接 Android 手机（需开启 USB 调试）。
+4.  点击 **Run** (绿色三角形) 安装应用。
 
 ---
 
-如有疑问，请参考 `DiagnosisService.kt` 了解评分逻辑，或直接联系项目负责人。Happy Coding! 🚀
+> **致谢**: 本项目由计算机工程团队与医学院团队合作开发。特别感谢在光学标定与样本制备方面提供的支持。
