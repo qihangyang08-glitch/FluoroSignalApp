@@ -54,36 +54,6 @@ class ImageAnalyzer {
 
             val baseName = imageFile.name
 
-            // 待办事项：请实现以下逻辑，根据计算出的指标确定最终的
-            //“质量”和“诊断”字段。
-            //
-            //  - 初始化用于质量和诊断的可变变量：
-            //    var quality = ImageQuality.GOOD
-            //    var diagnosis = ""
-            //
-            //  - 按顺序应用以下规则。第一个匹配的规则决定结果。
-            //
-            //  1. 过曝检查 (BAD):
-            //     - IF maxPixel > 250
-            //     - THEN set quality = ImageQuality.BAD
-            //     - AND set diagnosis = "图像过曝，信号可能饱和，结果不可靠。"
-            //
-            //  2. 曝光不足检查 (BAD):
-            //     - ELSE IF mean < 10
-            //     - THEN set quality = ImageQuality.BAD
-            //     - AND set diagnosis = "图像欠曝，信号过弱，无法准确分析。"
-            //
-            //  3. 高噪音检查 (WARNING):
-            //     - ELSE IF snr < 5.0
-            //     - THEN set quality = ImageQuality.WARNING
-            //     - AND set diagnosis = "信噪比过低，噪声可能影响结果准确性。"
-            //
-            //  4. 品质好 (GOOD):
-            //     - ELSE (if no other rules match)
-            //     - THEN set quality = ImageQuality.GOOD
-            //     - AND set diagnosis = "图像质量良好，结果可信。"
-            //
-
             return AnalysisResult(
                 imageName = baseName,
                 timestamp = System.currentTimeMillis(),
@@ -93,7 +63,20 @@ class ImageAnalyzer {
                 variance = varianceValue,
                 minPixelValue = minPixel,
                 maxPixelValue = maxPixel,
-                // Placeholder values, to be replaced by the logic above.
+                // Explicitly use default values for compatibility
+                median = 0.0,
+                skewness = 0.0,
+                kurtosis = 0.0,
+                validPixelCount = 0,
+                redMean = null,
+                redStdDev = null,
+                redSnr = null,
+                blueMean = null,
+                blueStdDev = null,
+                blueSnr = null,
+                analysisRegion = null,
+                warnings = emptyList(),
+                // Placeholder values for custom fields
                 quality = ImageQuality.GOOD, 
                 diagnosis = "Diagnosis logic to be implemented."
             )

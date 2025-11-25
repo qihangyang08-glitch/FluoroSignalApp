@@ -182,7 +182,17 @@ fun CameraUI(
                     },
                     valueRange = 100f..3200f,
                     displayValue = iso.toString(),
-                    enabled = areControlsEnabled
+                    enabled = areControlsEnabled,
+                    onDecrement = {
+                        val newValue = (iso - 50).coerceIn(100, 3200)
+                        iso = newValue
+                        cameraService.updateParameters(newValue, exposureTimeMs)
+                    },
+                    onIncrement = {
+                        val newValue = (iso + 50).coerceIn(100, 3200)
+                        iso = newValue
+                        cameraService.updateParameters(newValue, exposureTimeMs)
+                    }
                 )
 
                 ParameterSlider(
@@ -194,7 +204,17 @@ fun CameraUI(
                     },
                     valueRange = 1f..500f,
                     displayValue = "${exposureTimeMs}ms",
-                    enabled = areControlsEnabled
+                    enabled = areControlsEnabled,
+                    onDecrement = {
+                        val newValue = (exposureTimeMs - 1).coerceAtLeast(1L)
+                        exposureTimeMs = newValue
+                        cameraService.updateParameters(iso, newValue)
+                    },
+                    onIncrement = {
+                        val newValue = (exposureTimeMs + 1).coerceAtMost(500L)
+                        exposureTimeMs = newValue
+                        cameraService.updateParameters(iso, newValue)
+                    }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -288,7 +308,9 @@ private fun ParameterSlider(
     onValueChange: (Float) -> Unit,
     valueRange: ClosedFloatingPointRange<Float>,
     displayValue: String,
-    enabled: Boolean
+    enabled: Boolean,
+    onDecrement: () -> Unit,
+    onIncrement: () -> Unit
 ) {
     Column(modifier = Modifier.padding(vertical = 4.dp)) {
         Text(
@@ -297,11 +319,20 @@ private fun ParameterSlider(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            enabled = enabled
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Button(onClick = onDecrement, enabled = enabled, modifier = Modifier.size(48.dp)) {
+                Text("-")
+            }
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                enabled = enabled,
+                modifier = Modifier.weight(1f)
+            )
+            Button(onClick = onIncrement, enabled = enabled, modifier = Modifier.size(48.dp)) {
+                Text("+")
+            }
+        }
     }
 }

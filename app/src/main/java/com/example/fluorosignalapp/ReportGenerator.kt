@@ -21,11 +21,12 @@ object ReportGenerator {
      */
     suspend fun exportResultAsCsv(context: Context, result: AnalysisResult): Uri = withContext(Dispatchers.IO) {
         // 1. Define CSV Content
-        val header = "Image Name,Timestamp,Mean,Standard Deviation,SNR,Variance,Min Pixel,Max Pixel,Quality,Diagnosis"
+        val header = "Image Name,Timestamp,Mean,Standard Deviation,SNR,Variance,Min Pixel,Max Pixel,Median,Skewness,Red Mean,Blue Mean,Quality,Diagnosis,Warnings"
         val dataRow = with(result) {
             // Ensure diagnosis string with commas is properly quoted
             val escapedDiagnosis = "\"${diagnosis.replace("\"", "\"\"")}\""
-            "$imageName,$timestamp,$mean,$stdDev,$snr,$variance,$minPixelValue,$maxPixelValue,$quality,$escapedDiagnosis"
+            val warningsString = "\"${warnings.joinToString(", ")}\""
+            "$imageName,$timestamp,$mean,$stdDev,$snr,$variance,$minPixelValue,$maxPixelValue,$median,$skewness,${redMean ?: "N/A"},${blueMean ?: "N/A"},$quality,$escapedDiagnosis,$warningsString"
         }
         val csvContent = "$header\n$dataRow"
 
