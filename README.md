@@ -113,5 +113,6 @@ class ImageAnalyzer {
     *   你可以随时运行 App 来测试你的分析逻辑是否能与现有流程无缝对接。
 
 ---
-
-
+修改了ImageAnalyzer.kt和AnalysisResult.kt两个其他与master无异
+新增存储图像分析过程中产出的所有关键指标，支持多通道和高级统计
+进行ROI 分析、多通道统计和异常检测
