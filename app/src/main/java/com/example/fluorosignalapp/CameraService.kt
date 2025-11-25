@@ -8,9 +8,11 @@ import android.graphics.ImageFormat
 import android.hardware.camera2.*
 import android.media.Image
 import android.media.ImageReader
+import android.os.Build
 import android.util.Log
 import android.util.Size
 import android.view.Surface
+import androidx.annotation.RequiresApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -77,6 +79,7 @@ class CameraService(private val context: Context) {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.P)
     suspend fun takePicture(): File {
         if (!isCameraReady.value) throw IllegalStateException("Camera is not ready")
         val session = captureSession ?: throw IllegalStateException("Capture session is null")
@@ -84,11 +87,34 @@ class CameraService(private val context: Context) {
 
         val captureBuilder = session.device.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE).apply {
             addTarget(reader.surface)
-            set(CaptureRequest.CONTROL_AE_MODE, previewRequestBuilder.get(CaptureRequest.CONTROL_AE_MODE))
             set(CaptureRequest.SENSOR_SENSITIVITY, previewRequestBuilder.get(CaptureRequest.SENSOR_SENSITIVITY))
             set(CaptureRequest.SENSOR_EXPOSURE_TIME, previewRequestBuilder.get(CaptureRequest.SENSOR_EXPOSURE_TIME))
             set(CaptureRequest.CONTROL_AF_MODE, previewRequestBuilder.get(CaptureRequest.CONTROL_AF_MODE))
             set(CaptureRequest.JPEG_ORIENTATION, 90)
+
+            // ===== ISP BYPASS: Disable all post-processing for linear scientific data =====
+            
+            // 1. TONE MAPPING: Use FAST mode, which is the standard for minimal processing.
+            set(CaptureRequest.TONEMAP_MODE, CaptureRequest.TONEMAP_MODE_FAST)
+            
+            // 2. NOISE REDUCTION: Disable to preserve raw signal
+            set(CaptureRequest.NOISE_REDUCTION_MODE, CaptureRequest.NOISE_REDUCTION_MODE_OFF)
+            
+            // 3. EDGE ENHANCEMENT: Disable to prevent artificial edge artifacts
+            set(CaptureRequest.EDGE_MODE, CaptureRequest.EDGE_MODE_OFF)
+            
+            // 4. COLOR CORRECTION: Use transform matrix mode (no non-linear curves with AWB_OFF)
+            //    Combined with CONTROL_AWB_MODE_OFF, this prevents chromatic distortion.
+            set(CaptureRequest.COLOR_CORRECTION_MODE, CaptureRequest.COLOR_CORRECTION_MODE_TRANSFORM_MATRIX)
+            
+            // 5. AUTO WHITE BALANCE: Disable to ensure consistent color response
+            set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_OFF)
+            
+            // 6. AUTO EXPOSURE: Disable for manual control (locked during takePicture)
+            set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_OFF)
+            
+            // 7. DISTORTION CORRECTION: Disable to prevent pixel interpolation artifacts
+            set(CaptureRequest.DISTORTION_CORRECTION_MODE, CaptureRequest.DISTORTION_CORRECTION_MODE_OFF)
         }
 
         val image = suspendCancellableCoroutine<Image> { continuation ->

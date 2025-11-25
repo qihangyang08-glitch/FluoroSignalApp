@@ -20,12 +20,41 @@ object ReportGenerator {
      * @throws IOException if the file cannot be created or written to.
      */
     suspend fun exportResultAsCsv(context: Context, result: AnalysisResult): Uri = withContext(Dispatchers.IO) {
-        // 1. Define CSV Content
-        val header = "Image Name,Timestamp,Mean,Standard Deviation,SNR,Variance,Min Pixel,Max Pixel,Quality,Diagnosis"
+        // 1. Define CSV Content with Enhanced Fields
+        val header = "Image Name,Timestamp,Mean,Median,StdDev,SNR,Variance,Min Pixel,Max Pixel," +
+                "Mean Red,Mean Blue,Skewness,Kurtosis,Valid Pixel Count,Saturation Status,Is Saturated," +
+                "Quality,Quality Score,Diagnosis,Analysis Region,Warnings"
+
         val dataRow = with(result) {
-            // Ensure diagnosis string with commas is properly quoted
+            // Escape strings with quotes
             val escapedDiagnosis = "\"${diagnosis.replace("\"", "\"\"")}\""
-            "$imageName,$timestamp,$mean,$stdDev,$snr,$variance,$minPixelValue,$maxPixelValue,$quality,$escapedDiagnosis"
+            val escapedRegion = "\"${analysisRegion?.replace("\"", "\"\"") ?: ""}\""
+            val escapedWarnings = "\"${warnings.joinToString("; ").replace("\"", "\"\"")}\""
+
+            // Build the row with all fields
+            listOf(
+                imageName,
+                timestamp.toString(),
+                String.format("%.4f", mean),
+                String.format("%.4f", median),
+                String.format("%.4f", stdDev),
+                String.format("%.4f", snr),
+                String.format("%.4f", variance),
+                minPixelValue.toString(),
+                maxPixelValue.toString(),
+                String.format("%.4f", redMean ?: 0.0),
+                String.format("%.4f", blueMean ?: 0.0),
+                String.format("%.6f", skewness),
+                String.format("%.6f", kurtosis),
+                validPixelCount.toString(),
+                isSaturated.toString(),
+                isSaturated.toString(), // Duplicating for "Saturation Status" and "Is Saturated"
+                quality.name,
+                getQualityScore().toString(),
+                escapedDiagnosis,
+                escapedRegion,
+                escapedWarnings
+            ).joinToString(",")
         }
         val csvContent = "$header\n$dataRow"
 

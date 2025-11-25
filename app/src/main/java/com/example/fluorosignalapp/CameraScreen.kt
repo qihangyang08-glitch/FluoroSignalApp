@@ -2,11 +2,13 @@ package com.example.fluorosignalapp
 
 import android.Manifest
 import android.graphics.SurfaceTexture
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -28,6 +30,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavController
 import com.example.fluorosignalapp.data.diagnosis.DiagnosisService
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
@@ -35,6 +38,7 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.launch
 
+@RequiresApi(Build.VERSION_CODES.P)
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraScreen(
@@ -56,13 +60,14 @@ fun CameraScreen(
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.P)
 @Composable
 fun CameraUI(
     navController: NavController,
     sharedViewModel: SharedViewModel
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
     val cameraService = remember { CameraService(context) }
 
@@ -297,11 +302,33 @@ private fun ParameterSlider(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            enabled = enabled
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Slider(
+                modifier = Modifier.weight(1f),
+                value = value,
+                onValueChange = onValueChange,
+                valueRange = valueRange,
+                enabled = enabled
+            )
+
+            // Minus Button
+            Button(
+                onClick = { onValueChange((value - 1f).coerceIn(valueRange)) },
+                enabled = enabled
+            ) {
+                Text("-")
+            }
+            // Plus Button
+            Button(
+                onClick = { onValueChange((value + 1f).coerceIn(valueRange)) },
+                enabled = enabled
+            ) {
+                Text("+")
+            }
+        }
     }
 }
