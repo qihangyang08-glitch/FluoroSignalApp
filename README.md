@@ -1,109 +1,77 @@
 
 
-# FluoroSignalApp - 智能手机荧光信号定量分析系统
+# FluoroSignalApp - 科研级荧光定量分析系统 (v1.0.0)
 
-![Platform](https://img.shields.io/badge/Platform-Android-green.svg)
-![Language](https://img.shields.io/badge/Language-Kotlin_1.9-blue.svg)
-![UI](https://img.shields.io/badge/UI-Jetpack_Compose-purple.svg)
-![Architecture](https://img.shields.io/badge/Architecture-MVVM-orange.svg)
-![Status](https://img.shields.io/badge/Status-Scientific_Raw_Ready-red.svg)
-
-本项目旨在开发一款便携、低成本但具备**科研级精度**的荧光检测工具。通过深入 Android 底层相机控制，屏蔽系统自动处理算法，配合 OpenCV 图像分析，实现对荧光样本浓度的线性定量分析。
+本项目致力于将商用 Android 手机改造为高线性度的荧光检测仪器。核心目标是消除手机 ISP（图像信号处理器）对原始数据的非线性干扰，确保**光信号强度与像素数值呈严格线性关系**。
 
 ---
 
-## 🌟 核心亮点 (Key Highlights)
+## 🛠 已实现的技术特性 (Implemented Features)
 
-### 1. 🧪 纯净的“一手”数据采集 (Scientific Data Acquisition)
-为了解决普通手机拍照“非线性”、“美颜涂抹”导致实验数据失真的问题，我们重写了相机底层逻辑：
-*   **ISP 算法屏蔽**：在代码层面强制关闭了 Android 系统的 **色调映射 (Tone Mapping)**、**自动降噪 (Noise Reduction)**、**边缘增强** 和 **自动白平衡**。
-*   **线性响应**：确保传感器捕获的光子数量与像素数值呈线性关系（R² > 0.98），这是定量分析的基础。
-*   **无损存储**：全链路使用 **PNG 无损格式**，杜绝 JPEG 压缩带来的随机噪声。
+为了保证数据的科研有效性，我们在底层架构上执行了以下强制性修改：
 
-### 2. 🎛️ 精细化拍摄控制 (Precision Control)
-专为实验室场景设计的交互界面：
-*   **全手动参数**：支持手动锁定 **ISO (感光度)** 和 **曝光时间 (Exposure Time)**。
-*   **微调步进 (Fine-tuning)**：新增 **[+] / [-] 精确调节按钮**。ISO 步进 50，曝光时间步进 1ms，确保实验条件可被精确复制。
-*   **参数锁定**：拍摄瞬间强制锁定自动曝光 (AE Lock)，防止画面亮度波动。
+### 1. 全链路无损线性采集
+*   **数据源重构**：弃用 `ImageFormat.JPEG`。直接从 Camera2 API 获取 `ImageFormat.YUV_420_888` 数据流。
+    *   *目的*：彻底绕过 JPEG 编码器的 Gamma 2.2 校正和有损压缩，保留传感器原始线性响应。
+*   **OpenCV 转码**：使用 OpenCV 内核执行 YUV 到 RGB 的数学转换，并封装为无损 **PNG** 格式。
+    *   *目的*：防止 Android `Bitmap` 类在转换过程中引入色彩空间偏差。
 
-### 3. 🩺 智能数据诊断 (Smart Diagnosis)
-不仅仅输出冷冰冰的数字，App 内置了“AI 医生”逻辑：
-*   **质量评估**：自动判断照片是否 **过曝 (Saturation)**、**欠曝** 或 **信噪比过低**。
-*   **人话建议**：直接在报告中给出建议（如：“⚠️ 严重过曝，请降低 ISO”），降低医学生的上手门槛。
-*   **可视化反馈**：分析卡片根据数据质量自动变色（🟢优质 / 🟡警告 / 🔴废片）。
+### 2. ISP 算法强制屏蔽
+在 `CaptureRequest` 中对以下系统算法进行了物理层面的屏蔽或规避：
+*   **色调映射 (Tone Mapping)**：设置为 `TONEMAP_MODE_CONTRAST_CURVE` 并应用 `(0,0)->(1,1)` 绝对线性曲线。
+    *   *目的*：禁止系统压制高光或提亮暗部（S型曲线），确保亮度数值真实反映光子数量。
+*   **降噪 (Noise Reduction)**：`OFF`。防止微弱荧光信号被误判为噪点抹除。
+*   **边缘增强 (Edge Enhancement)**：`OFF`。防止光斑边缘出现虚假锐化轮廓。
+*   **自动白平衡 (AWB)**：`OFF`。锁定色彩增益，防止不同浓度样本色调漂移。
 
-### 4. 📂 自动化数据流 (Automated Workflow)
-*   **闭环管理**：拍摄 -> `PendingAnalysis` (待分析) -> 分析 -> `AnalysisHistory` (归档)。
-*   **全量导出**：支持一键导出包含所有通道数据（R/G/B）、统计指标（偏度/峰度）及诊断结论的 **CSV 报表**，方便导入 Excel/SPSS 进行二次分析。
+### 3. 原子级曝光锁定
+*   **竞态条件修复**：在 `takePicture` 触发瞬间，原子化读取当前 ISO 和曝光时间，构建独立的拍摄请求。
+    *   *目的*：杜绝在按下快门的毫秒级延迟中，UI 线程或系统自动曝光逻辑修改参数的可能性。
 
 ---
 
-## 🛠️ 技术架构 (Technical Architecture)
+## ⚠️ 技术妥协与已知限制 (Compromises & Limitations)
 
-项目采用现代 Android 开发技术栈：
+受限于开发周期与硬件兼容性，当前版本存在以下妥协，需在后续迭代或数据分析时予以注意：
 
-| 模块 | 技术选型 | 职责说明 |
-| :--- | :--- | :--- |
-| **UI 层** | **Jetpack Compose** | 声明式 UI，实现流畅的实时预览与交互 |
-| **导航** | **Navigation-Compose** | 管理相机页与结果页的无缝跳转 |
-| **相机层** | **Camera2 API** | 底层硬件控制，实现“科研模式”拍摄 |
-| **逻辑层** | **Kotlin Coroutines** | 异步处理文件读写与耗时计算 |
-| **数据层** | **Kotlinx Serialization** | 复杂数据结构（分析结果）的序列化存储 |
-| **算法层** | **OpenCV (Integration)** | (接口已预留) 负责 ROI 分割与多通道统计 |
+1.  **YUV vs RAW**
+    *   *现状*：使用 `YUV_420_888` 格式。
+    *   *妥协原因*：`RAW_SENSOR` (Bayer阵列) 需要重写整个 `ImageAnalyzer` 的去马赛克算法，成本过高。
+    *   *潜在影响*：YUV 数据虽然也是线性的，但仍经过了 ISP 的去马赛克（Demosaicing）处理，并非绝对意义上的“电压级”原始数据。对于目前的浓度检测精度已足够，但极端科研场景下可能存在微量偏差。
 
----
+2.  **色调映射 (Tone Mapping)**
+    *   *现状*：使用“线性曲线”规避。
+    *   *妥协原因*：绝大多数 Android 设备不支持在非 RAW 格式下完全关闭 (`OFF`) 色调映射。
+    *   *潜在影响*：理论上线性曲线等同于关闭，但仍需依赖 ISP 准确执行该指令。
 
-## 📸 功能演示 (Features)
-
-### 拍摄界面 (Camera Screen)
-*   **实时预览**：所见即所得，无画面拉伸。
-*   **控制面板**：
-    *   ISO 滑块 + 微调按钮
-    *   曝光时间滑块 + 微调按钮
-    *   **[选择]**：从相册导入外部图片分析
-    *   **[拍照]**：获取无损 PNG
-    *   **[分析]**：触发后台算法流程
-
-### 结果界面 (Result Screen)
-*   **核心指标**：突出显示绿色通道均值 (Mean G)。
-*   **诊断卡片**：显示数据质量评分与操作建议。
-*   **详细数据**：折叠展示多通道均值、方差、偏度等高级统计量。
-*   **[导出]**：调用系统分享表单发送 CSV 报告。
+3.  **色彩空间 (Color Space)**
+    *   *现状*：依赖 OpenCV 默认的 `COLOR_YUV2BGR_I420` 标准。
+    *   *潜在影响*：未针对特定手机传感器的光谱响应进行色彩校正矩阵（CCM）标定。
 
 ---
 
-## 🤝 协作指南 (For Contributors)
+## 🧪 实验操作规范 (For Medical Team)
 
-当前分支 **`num5`** (或最新开发分支) 已完成以下工作，等待算法核心接入：
+**为了确保软件算法生效，请在实验中严格遵守以下操作：**
 
-1.  **Data Model Ready**: `AnalysisResult.kt` 已升级，预埋了 `meanR/G/B`, `skewness`, `warnings`, `roi` 等所有高级字段。
-2.  **UI Ready**: 结果页面已适配新模型，能够动态显示所有新字段。
-3.  **Source Ready**: `CameraService` 产出的图片已确认为线性无损 PNG。
-
-**接下来的工作 (To-Do):**
-*   [ ] 将最新的 `ImageAnalyzer.kt` (包含 ROI 掩膜与多通道逻辑) 合并入项目。
-*   [ ] 验证算法计算出的 `meanG` 与拍摄参数的线性关系。
-
----
-
-## 📦 如何构建与运行
-
-1.  克隆仓库：
-    ```bash
-    git clone [Repo URL]
-    ```
-2.  打开 Android Studio，等待 Gradle 同步完成。
-3.  连接 Android 手机（需开启 USB 调试）。
-4.  点击 **Run** (绿色三角形) 安装应用。
+1.  **环境要求**：必须在**全暗室**进行，最大限度减少背景杂散光。
+2.  **参数设定**：
+    *   **ISO**：推荐锁定为 **100** (最低)，以减少底噪。
+    *   **曝光时间**：根据最亮样本调整，确保 **Max Pixel Value < 230**。**严禁过曝（出现255）**。
+    *   **参数一致性**：同一组实验的所有样本，必须使用**完全相同**的 ISO 和曝光时间。
+3.  **拍摄操作**：
+    *   利用 UI 上的 **[+] / [-]** 按钮进行参数微调。
+    *   点击拍照后，等待 Toast 提示“已保存”再移动样本。
+4.  **数据验证**：
+    *   观察生成的 CSV 报告中 `Mean G` (绿色通道均值) 与浓度的关系。
+    *   若高浓度样本数值无变化，请优先检查是否过曝；若低浓度无变化，请检查是否 ISO 过高导致噪点掩盖信号。
 
 ---
 
-> **致谢**: 本项目由计算机工程团队与医学院团队合作开发。特别感谢在光学标定与样本制备方面提供的支持。
+## 💻 开发维护指南
 
-不成线性关系原因：
-1.问题代码位置： CameraService.kt
-问题： ImageReader 配置为 ImageFormat.JPEG，JPEG 本身已经应用了非线性 gamma 校正！
-在 CameraService.kt 的 takePicture() 方法中，替换所有拍摄相关代码。
-同步更新预览参数设置。
-2.在 CameraService.kt 中使用的 CaptureRequest.CONTROL_AE_MODE 可能并未被成功锁定或覆盖，导致手机相机系统自动抵消了您手动调整 ISO 带来的亮度变化。
-
+*   **分支说明**：当前代码位于 `num4` (或最新) 分支。
+*   **核心文件**：
+    *   `CameraService.kt`: 包含 ISP 屏蔽与 YUV 转码逻辑。
+    *   `ImageAnalyzer.kt`: 包含 ROI 掩膜与多通道统计逻辑。
+*   **Debug**：如需查看拍摄参数日志，请在 Logcat 过滤 `CameraService` 或 `ImageAnalyzer` 标签。
