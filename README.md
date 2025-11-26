@@ -99,3 +99,11 @@
 ---
 
 > **致谢**: 本项目由计算机工程团队与医学院团队合作开发。特别感谢在光学标定与样本制备方面提供的支持。
+
+不成线性关系原因：
+1.问题代码位置： CameraService.kt
+问题： ImageReader 配置为 ImageFormat.JPEG，JPEG 本身已经应用了非线性 gamma 校正！
+在 CameraService.kt 的 takePicture() 方法中，替换所有拍摄相关代码。
+同步更新预览参数设置。
+2.在 CameraService.kt 中使用的 CaptureRequest.CONTROL_AE_MODE 可能并未被成功锁定或覆盖，导致手机相机系统自动抵消了您手动调整 ISO 带来的亮度变化。
+
