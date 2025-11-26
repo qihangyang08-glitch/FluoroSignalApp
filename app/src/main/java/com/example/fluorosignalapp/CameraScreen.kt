@@ -13,7 +13,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -170,8 +172,9 @@ fun CameraUI(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .padding(16.dp)
+                    .background(Color.Black.copy(alpha = 0.75f))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 ParameterSlider(
                     label = "ISO",
@@ -184,12 +187,12 @@ fun CameraUI(
                     displayValue = iso.toString(),
                     enabled = areControlsEnabled,
                     onDecrement = {
-                        val newValue = (iso - 50).coerceIn(100, 3200)
+                        val newValue = (iso - 1).coerceIn(100, 3200)
                         iso = newValue
                         cameraService.updateParameters(newValue, exposureTimeMs)
                     },
                     onIncrement = {
-                        val newValue = (iso + 50).coerceIn(100, 3200)
+                        val newValue = (iso + 1).coerceIn(100, 3200)
                         iso = newValue
                         cameraService.updateParameters(newValue, exposureTimeMs)
                     }
@@ -217,11 +220,19 @@ fun CameraUI(
                     }
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Divider(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    color = Color.White.copy(alpha = 0.3f),
+                    thickness = 1.dp
+                )
 
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Button(
@@ -230,9 +241,16 @@ fun CameraUI(
                                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                             )
                         },
-                        enabled = areControlsEnabled
+                        enabled = areControlsEnabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2196F3),
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
+                        )
                     ) {
-                        Text(text = "选择", fontSize = 16.sp)
+                        Text(text = "选择", fontSize = 14.sp)
                     }
 
                     Button(
@@ -250,9 +268,16 @@ fun CameraUI(
                                 }
                             }
                         },
-                        enabled = areControlsEnabled
+                        enabled = areControlsEnabled,
+                        modifier = Modifier
+                            .weight(1.2f)
+                            .height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50),
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
+                        )
                     ) {
-                        Text(text = "拍照", fontSize = 16.sp)
+                        Text(text = "拍照", fontSize = 14.sp)
                     }
 
                     Button(
@@ -291,9 +316,16 @@ fun CameraUI(
                                 }
                             }
                         },
-                        enabled = areControlsEnabled
+                        enabled = areControlsEnabled,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF9800),
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
+                        )
                     ) {
-                        Text(text = "分析", fontSize = 16.sp)
+                        Text(text = "分析", fontSize = 14.sp)
                     }
                 }
             }
@@ -312,26 +344,68 @@ private fun ParameterSlider(
     onDecrement: () -> Unit,
     onIncrement: () -> Unit
 ) {
-    Column(modifier = Modifier.padding(vertical = 4.dp)) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                color = Color.White.copy(alpha = 0.08f),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // 参数标签和值
         Text(
             text = "$label: $displayValue",
-            color = if (enabled) Color.White else Color.Gray,
-            textAlign = TextAlign.Center,
+            color = Color.White,
+            fontSize = 15.sp,
+            textAlign = TextAlign.Start,
             modifier = Modifier.fillMaxWidth()
         )
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            Button(onClick = onDecrement, enabled = enabled, modifier = Modifier.size(48.dp)) {
-                Text("-")
+
+        // 滑块和按钮行
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // 减按钮
+            Button(
+                onClick = onDecrement,
+                enabled = enabled,
+                modifier = Modifier.size(40.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE57373),
+                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                ),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+            ) {
+                Text("-", fontSize = 18.sp)
             }
+
+            // 滑块
             Slider(
                 value = value,
                 onValueChange = onValueChange,
                 valueRange = valueRange,
                 enabled = enabled,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp)
             )
-            Button(onClick = onIncrement, enabled = enabled, modifier = Modifier.size(48.dp)) {
-                Text("+")
+
+            // 加按钮
+            Button(
+                onClick = onIncrement,
+                enabled = enabled,
+                modifier = Modifier.size(40.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF81C784),
+                    disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
+                ),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+            ) {
+                Text("+", fontSize = 18.sp)
             }
         }
     }
