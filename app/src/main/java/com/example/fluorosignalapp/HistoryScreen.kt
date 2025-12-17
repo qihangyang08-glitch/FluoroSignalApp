@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -98,13 +99,7 @@ fun HistoryScreen(
                 navigationIcon = {
                     Button(
                         onClick = onNavigateBack,
-                        modifier = Modifier
-                            .padding(8.dp)
-                            .size(40.dp),
-                        contentPadding = PaddingValues(0.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2196F3)
-                        )
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text("← 返回")
                     }
@@ -237,7 +232,7 @@ private fun StatItem(label: String, value: String, color: Color) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .background(color.copy(alpha = 0.1f), shape = androidx.compose.material3.shapes.RoundedCornerShape(4.dp))
+            .background(color.copy(alpha = 0.1f), shape = RoundedCornerShape(4.dp))
             .padding(8.dp)
     ) {
         Text(label, fontSize = 10.sp, color = Color.Gray)
@@ -354,7 +349,7 @@ private fun HistoryItemCard(
 
                 Surface(
                     color = qualityColor,
-                    shape = androidx.compose.material3.shapes.RoundedCornerShape(4.dp),
+                    shape = RoundedCornerShape(4.dp),
                     modifier = Modifier.padding(start = 8.dp)
                 ) {
                     Text(
@@ -431,7 +426,7 @@ private fun HistoryItemCard(
                         .fillMaxWidth()
                         .background(
                             qualityColor.copy(alpha = 0.1f),
-                            shape = androidx.compose.material3.shapes.RoundedCornerShape(2.dp)
+                            shape = RoundedCornerShape(2.dp)
                         )
                         .padding(6.dp)
                 )

@@ -119,26 +119,63 @@ fun ResultScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Button(onClick = {
-                    coroutineScope.launch {
-                        try {
-                            val csvUri = ReportGenerator.exportResultAsCsv(context, result)
-                            Toast.makeText(context, "报告已导出到下载文件夹", Toast.LENGTH_SHORT).show()
-
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/csv"
-                                putExtra(Intent.EXTRA_STREAM, csvUri)
-                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(Intent.createChooser(intent, "分享CSV报告"))
-
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
+                var showExportMenu by remember { mutableStateOf(false) }
+                
+                Box {
+                    Button(onClick = { showExportMenu = true }) {
+                        Text("导出报告")
                     }
-                }) {
-                    Text("导出报告")
+                    
+                    DropdownMenu(
+                        expanded = showExportMenu,
+                        onDismissRequest = { showExportMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("导出 CSV") },
+                            onClick = {
+                                showExportMenu = false
+                                coroutineScope.launch {
+                                    try {
+                                        val csvUri = ReportGenerator.exportResultAsCsv(context, result)
+                                        Toast.makeText(context, "CSV报告已导出", Toast.LENGTH_SHORT).show()
+
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "text/csv"
+                                            putExtra(Intent.EXTRA_STREAM, csvUri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, "分享CSV报告"))
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        )
+                        
+                        DropdownMenuItem(
+                            text = { Text("导出 PDF") },
+                            onClick = {
+                                showExportMenu = false
+                                coroutineScope.launch {
+                                    try {
+                                        val pdfUri = ReportGenerator.exportResultAsPdf(context, result)
+                                        Toast.makeText(context, "PDF报告已导出", Toast.LENGTH_SHORT).show()
+
+                                        val intent = Intent(Intent.ACTION_SEND).apply {
+                                            type = "application/pdf"
+                                            putExtra(Intent.EXTRA_STREAM, pdfUri)
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        }
+                                        context.startActivity(Intent.createChooser(intent, "分享PDF报告"))
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "导出失败: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        )
+                    }
                 }
+
                 Button(onClick = onNavigateBack) {
                     Text("返回相机")
                 }
