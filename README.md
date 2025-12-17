@@ -66,12 +66,3 @@
     *   观察生成的 CSV 报告中 `Mean G` (绿色通道均值) 与浓度的关系。
     *   若高浓度样本数值无变化，请优先检查是否过曝；若低浓度无变化，请检查是否 ISO 过高导致噪点掩盖信号。
 
----
-
-## 💻 开发维护指南
-
-*   **分支说明**：当前代码位于 `num5` (或最新) 分支。
-*   **核心文件**：
-    *   `CameraService.kt`: 包含 ISP 屏蔽与 YUV 转码逻辑。
-    *   `ImageAnalyzer.kt`: 包含 ROI 掩膜与多通道统计逻辑。
-*   **Debug**：如需查看拍摄参数日志，请在 Logcat 过滤 `CameraService` 或 `ImageAnalyzer` 标签。
