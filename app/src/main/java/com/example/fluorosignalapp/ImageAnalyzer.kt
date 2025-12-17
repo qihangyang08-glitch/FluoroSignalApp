@@ -25,26 +25,24 @@ class ImageAnalyzer {
     private val TAG = "ImageAnalyzer"
 
     // =========================================================================
-    // ⚠️ WARNING: ROI 坐标 - 请根据实际拍摄和样品位置调整
-    // 必须确保这个矩形精确覆盖您的样品分析区域！
-    // -------------------------------------------------------------------------
-    private val ROI_X = 500  // 裁剪区域起始 X 坐标
-    private val ROI_Y = 500  // 裁剪区域起始 Y 坐标
-    private val ROI_WIDTH = 800 // 裁剪区域宽度
-    private val ROI_HEIGHT = 800 // 裁剪区域高度
+    // ⚠️ ROI 配置
+    // 现在的逻辑是：自动寻找画面中最亮的点作为中心，然后裁剪出以下大小的区域
+    // =========================================================================
+    private val ROI_WIDTH = 400  // 缩小 ROI 范围以更聚焦于试管 (原 800)
+    private val ROI_HEIGHT = 400 // 缩小 ROI 范围以更聚焦于试管 (原 800)
     // =========================================================================
 
     /**
      * 分析图像文件，返回完整的多通道统计结果
      */
     suspend fun analyze(imageFile: File): AnalysisResult = withContext(Dispatchers.Default) {
-        Log.i(TAG, "Starting analysis for: ${imageFile.name}. Using ROI: ${ROI_WIDTH}x${ROI_HEIGHT}")
+        Log.i(TAG, "Starting analysis for: ${imageFile.name}")
 
         require(imageFile.exists()) {
             "Image file does not exist: ${imageFile.absolutePath}"
         }
 
-        // 用于存储需要释放的 Mat 对象（主要是原始图像和通道分离的结果）
+        // 用于存储需要释放的 Mat 对象
         val matsToRelease = mutableListOf<Mat>()
 
         try {
@@ -56,12 +54,6 @@ class ImageAnalyzer {
                 "Failed to load image: ${imageFile.absolutePath}"
             }
 
-            // 检查 ROI 是否越界
-            val roiRect = Rect(ROI_X, ROI_Y, ROI_WIDTH, ROI_HEIGHT)
-            require(roiRect.x + roiRect.width <= image.cols() && roiRect.y + roiRect.height <= image.rows()) {
-                "ROI coordinates are out of bounds of the image (Image: ${image.cols()}x${image.rows()}, ROI: ${roiRect.x}, ${roiRect.y}, ${roiRect.width}, ${roiRect.height})"
-            }
-
             // 2. 分离通道
             val channels = ArrayList<Mat>()
             Core.split(image, channels)
@@ -70,13 +62,39 @@ class ImageAnalyzer {
             }
             matsToRelease.addAll(channels)
 
-            // 2.5. 【新增】 ROI 裁剪
-            // submat() 返回的 Mat 只是原始 Mat 的头信息，不需要单独释放，因为原始 channels 会被释放
+            // 2.5. 【核心改进】 自动寻找最亮区域 (Auto-ROI)
+            // 使用绿色通道寻找最亮斑点（通常荧光信号在绿色通道最强）
+            val greenChannel = channels[1]
+            val minMaxResult = Core.minMaxLoc(greenChannel)
+            val maxLoc = minMaxResult.maxLoc // 最亮点的坐标 (x, y)
+            val maxVal = minMaxResult.maxVal
+
+            Log.i(TAG, "Found brightest spot at (${maxLoc.x}, ${maxLoc.y}) with value $maxVal")
+
+            // 如果最大亮度太低，说明可能是一张全黑图片
+            if (maxVal < 10) {
+                Log.w(TAG, "Image is too dark (Max value < 10). Using center of image as fallback.")
+                maxLoc.x = image.cols() / 2.0
+                maxLoc.y = image.rows() / 2.0
+            }
+
+            // 计算 ROI 的左上角坐标，使其以最亮点为中心
+            var roiX = (maxLoc.x - ROI_WIDTH / 2).toInt()
+            var roiY = (maxLoc.y - ROI_HEIGHT / 2).toInt()
+
+            // 边界修正：确保 ROI 不会超出图像边界
+            if (roiX < 0) roiX = 0
+            if (roiY < 0) roiY = 0
+            if (roiX + ROI_WIDTH > image.cols()) roiX = image.cols() - ROI_WIDTH
+            if (roiY + ROI_HEIGHT > image.rows()) roiY = image.rows() - ROI_HEIGHT
+
+            val roiRect = Rect(roiX, roiY, ROI_WIDTH, ROI_HEIGHT)
+            Log.i(TAG, "Dynamic ROI calculated: $roiRect")
+
+            // 裁剪 ROI
             val blueROI = channels[0].submat(roiRect)
             val greenROI = channels[1].submat(roiRect)
             val redROI = channels[2].submat(roiRect)
-
-            Log.d(TAG, "ROI cropped successfully. New analysis size: ${greenROI.cols()}x${greenROI.rows()}")
 
             // 3. 计算各通道统计量（使用 ROI 区域）
             val greenStats = computeChannelStats(greenROI, "Green")
@@ -88,12 +106,9 @@ class ImageAnalyzer {
             if (greenStats.maxPixel >= 250) {
                 warnings.add("严重过曝：绿色通道最大值 ${greenStats.maxPixel}")
             }
-            if (greenStats.mean < 10) {
+            // 降低了低信号的阈值，因为暗室拍摄可能整体较暗
+            if (greenStats.mean < 5) {
                 warnings.add("信号过弱：绿色通道均值 ${greenStats.mean}")
-            }
-            // 5.0 是一个经验值，可能需要调整
-            if (greenStats.snr < 5.0 && greenStats.snr != Double.MAX_VALUE) { 
-                warnings.add("信噪比偏低：SNR = ${String.format("%.2f", greenStats.snr)}")
             }
             
             // 5. 计算有效像素数（排除过饱和区域）
@@ -128,7 +143,7 @@ class ImageAnalyzer {
                 blueStdDev = blueStats.stdDev,
                 blueSnr = blueStats.snr,
 
-                analysisRegion = "ROI: (${ROI_X},${ROI_Y}) ${ROI_WIDTH}x${ROI_HEIGHT}", // 更新 ROI 信息
+                analysisRegion = "Auto-ROI: (${roiX},${roiY}) ${ROI_WIDTH}x${ROI_HEIGHT}", // 更新 ROI 信息
                 warnings = warnings,
 
                 // 占位值（由 DiagnosisService 填充）
