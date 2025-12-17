@@ -9,10 +9,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.fluorosignalapp.backend.BackendManager
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize the backend manager
+        BackendManager.initialize(this)
 
         setContent {
             MaterialTheme {
@@ -37,6 +41,14 @@ class MainActivity : ComponentActivity() {
                                 sharedViewModel = sharedViewModel,
                                 onNavigateBack = {
                                     // Use popBackStack without arguments for simple back navigation
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+                        composable(Routes.HISTORY) {
+                            HistoryScreen(
+                                sharedViewModel = sharedViewModel,
+                                onNavigateBack = {
                                     navController.popBackStack()
                                 }
                             )

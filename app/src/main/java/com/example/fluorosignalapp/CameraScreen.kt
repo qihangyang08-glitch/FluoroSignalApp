@@ -36,6 +36,7 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.launch
+import com.example.fluorosignalapp.backend.BackendManager
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -68,13 +69,19 @@ fun CameraUI(
     val coroutineScope = rememberCoroutineScope()
     val cameraService = remember { CameraService(context) }
 
+    // Backend Manager Integration
+    val backendManager = remember { BackendManager.getInstance(context) }
+    val isAnalyzing by backendManager.isAnalyzing.collectAsState()
+    val analysisProgress by backendManager.analysisProgress.collectAsState()
+    val analysisError by backendManager.analysisError.collectAsState()
+
     var iso by remember { mutableStateOf(800) }
     var exposureTimeMs by remember { mutableStateOf(100L) }
     var aspectRatio by remember { mutableStateOf<Float?>(null) }
     var isCapturing by remember { mutableStateOf(false) }
 
     val isCameraReady by cameraService.isCameraReady.collectAsState()
-    val areControlsEnabled = isCameraReady && !isCapturing
+    val areControlsEnabled = isCameraReady && !isCapturing && !isAnalyzing
 
     val pickMediaLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
@@ -291,28 +298,22 @@ fun CameraUI(
                                 }
 
                                 Log.i("CameraUI", "Starting analysis for: ${imageFile.name}")
-                                isCapturing = true
-                                Log.d("APP_DEBUG", "分析开始，文件: ${imageFile.name}")
+                                
                                 try {
-                                    val analyzer = ImageAnalyzer()
-                                    val rawResult = analyzer.analyze(imageFile)
-                                    val finalResult = DiagnosisService.diagnose(rawResult)
+                                    val finalResult = backendManager.performAnalysis(imageFile)
 
-                                    Log.d("APP_DEBUG", "分析成功，结果SNR: ${finalResult.snr}")
-                                    Log.d("APP_DEBUG", "即将调用 archiveAnalyzedData...")
-                                    FileManager.archiveAnalyzedData(imageFile, finalResult)
-                                    Log.d("APP_DEBUG", "archiveAnalyzedData 调用完成。")
-                                    Toast.makeText(context, "分析完成！诊断: ${finalResult.diagnosis}", Toast.LENGTH_LONG).show()
+                                    if (finalResult != null) {
+                                        Log.d("APP_DEBUG", "分析成功，结果SNR: ${finalResult.snr}")
+                                        Toast.makeText(context, "分析完成！诊断: ${finalResult.diagnosis}", Toast.LENGTH_LONG).show()
 
-                                    // Use the ViewModel to set the result and navigate
-                                    sharedViewModel.setAnalysisResult(finalResult)
-                                    navController.navigate(Routes.RESULT)
+                                        sharedViewModel.setAnalysisResult(finalResult)
+                                        navController.navigate(Routes.RESULT)
+                                    } else {
+                                        Toast.makeText(context, "分析未返回结果", Toast.LENGTH_LONG).show()
+                                    }
                                 } catch (e: Exception) {
                                     Log.e("CameraUI", "Analysis failed", e)
-                                    Log.e("APP_DEBUG", "分析或归档过程中发生错误", e)
                                     Toast.makeText(context, "分析失败: ${e.message}", Toast.LENGTH_LONG).show()
-                                } finally {
-                                    isCapturing = false
                                 }
                             }
                         },
@@ -325,7 +326,33 @@ fun CameraUI(
                             disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
                         )
                     ) {
-                        Text(text = "分析", fontSize = 14.sp)
+                        if (isAnalyzing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(text = "分析", fontSize = 14.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = {
+                            navController.navigate(Routes.HISTORY)
+                        },
+                        enabled = !isCapturing && !isAnalyzing,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF9C27B0),
+                            disabledContainerColor = Color.Gray.copy(alpha = 0.5f)
+                        )
+                    ) {
+                        Text(text = "历史", fontSize = 14.sp)
                     }
                 }
             }
