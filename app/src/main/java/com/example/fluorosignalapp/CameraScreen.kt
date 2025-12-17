@@ -38,6 +38,8 @@ import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.TimeoutCancellationException
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -252,11 +254,14 @@ fun CameraUI(
                                 coroutineScope.launch {
                                     isCapturing = true
                                     try {
-                                        val file = cameraService.takePicture()
+                                        val file = withTimeout(5000) {
+                                            cameraService.takePicture()
+                                        }
                                         Toast.makeText(context, "Saved: ${file.name}", Toast.LENGTH_SHORT).show()
                                     } catch (e: Exception) {
                                         Log.e("CameraScreen", "Error taking picture", e)
-                                        Toast.makeText(context, "拍照失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        val msg = if (e is TimeoutCancellationException) "拍照超时" else e.message
+                                        Toast.makeText(context, "拍照失败: $msg", Toast.LENGTH_SHORT).show()
                                     } finally {
                                         isCapturing = false
                                     }
@@ -341,11 +346,16 @@ fun CameraUI(
                         surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
                             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                                 coroutineScope.launch {
-                                    cameraService.openCamera(android.view.Surface(surface), width, height)
-                                    val optimalSize = cameraService.getPreviewSize()
-                                    if (optimalSize != null) {
-                                        surface.setDefaultBufferSize(optimalSize.width, optimalSize.height)
-                                        aspectRatio = optimalSize.width.toFloat() / optimalSize.height.toFloat()
+                                    try {
+                                        cameraService.openCamera(android.view.Surface(surface), width, height)
+                                        val optimalSize = cameraService.getPreviewSize()
+                                        if (optimalSize != null) {
+                                            surface.setDefaultBufferSize(optimalSize.width, optimalSize.height)
+                                            aspectRatio = optimalSize.width.toFloat() / optimalSize.height.toFloat()
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("CameraScreen", "Failed to open camera", e)
+                                        Toast.makeText(ctx, "无法打开相机: ${e.message}", Toast.LENGTH_LONG).show()
                                     }
                                 }
                             }

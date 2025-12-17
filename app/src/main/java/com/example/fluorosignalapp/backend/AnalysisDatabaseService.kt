@@ -99,14 +99,21 @@ class AnalysisDatabaseService(private val context: Context) : IAnalysisDatabaseS
 
     /**
      * 删除分析记录
+     * 支持通过 Record ID 或 Image Name 删除
      */
     override suspend fun deleteAnalysis(analysisId: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
-                val removed = analysisRecords.removeIf { it.id == analysisId }
+                // 尝试匹配 ID 或 ImageName
+                val removed = analysisRecords.removeIf { 
+                    it.id == analysisId || it.result.imageName == analysisId 
+                }
+                
                 if (removed) {
                     saveToDisk()
                     Log.i(TAG, "Deleted analysis: $analysisId")
+                } else {
+                    Log.w(TAG, "Analysis not found for deletion: $analysisId")
                 }
                 removed
 

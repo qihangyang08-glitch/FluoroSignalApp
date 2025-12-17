@@ -159,6 +159,7 @@ class BackendManager private constructor(private val context: Context) {
     }
 
     companion object {
+        @Volatile
         private var instance: BackendManager? = null
 
         /**
@@ -166,17 +167,10 @@ class BackendManager private constructor(private val context: Context) {
          */
         fun getInstance(context: Context): BackendManager {
             return instance ?: synchronized(this) {
-                BackendManager(context).also { instance = it }
-            }
-        }
-
-        /**
-         * 初始化管理器
-         */
-        fun initialize(context: Context) {
-            if (instance == null) {
-                instance = BackendManager(context)
-                Log.i("BackendManager", "Backend manager initialized")
+                instance ?: BackendManager(context.applicationContext).also {
+                    instance = it
+                    Log.i("BackendManager", "Backend manager initialized")
+                }
             }
         }
     }

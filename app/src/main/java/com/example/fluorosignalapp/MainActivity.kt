@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         // Initialize the backend manager
-        BackendManager.initialize(this)
+        BackendManager.getInstance(this)
 
         setContent {
             MaterialTheme {

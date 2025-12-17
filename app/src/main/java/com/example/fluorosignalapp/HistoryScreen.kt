@@ -1,17 +1,25 @@
 package com.example.fluorosignalapp
 
 import android.util.Log
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -20,6 +28,8 @@ import com.example.fluorosignalapp.backend.BackendManager
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.max
+import kotlin.math.min
 
 /**
  * 历史记录屏幕 - 展示所有分析记录
@@ -30,8 +40,10 @@ import java.util.*
  * - 支持按质量筛选
  * - 显示详细统计信息
  * - 支持删除记录
+ * - [新增] 趋势图表展示
+ * - [新增] 批量清理功能
  * 
- * 代码行数: ~250行
+ * 代码行数: ~400行
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,11 +61,14 @@ fun HistoryScreen(
     var isLoading by remember { mutableStateOf(true) }
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, GOOD, WARNING, BAD
     var selectedItem by remember { mutableStateOf<AnalysisResult?>(null) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var itemToDelete by remember { mutableStateOf<AnalysisResult?>(null) }
 
     // 初始化加载数据
-    LaunchedEffect(Unit) {
+    fun loadData() {
         coroutineScope.launch {
             try {
+                isLoading = true
                 val history = backendManager.getAnalysisHistory(limit = 100)
                 analysisHistory = history
                 
@@ -75,12 +90,86 @@ fun HistoryScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        loadData()
+    }
+
+    // 批量删除逻辑
+    fun deleteBadRecords() {
+        coroutineScope.launch {
+            val badRecords = analysisHistory.filter { it.quality.name == "BAD" }
+            var deletedCount = 0
+            badRecords.forEach { record ->
+                if (backendManager.deleteAnalysis(record.imageName)) {
+                    deletedCount++
+                }
+            }
+            if (deletedCount > 0) {
+                loadData() // 重新加载数据
+            }
+            showDeleteDialog = false
+        }
+    }
+
+    // 单个删除逻辑
+    fun deleteSingleRecord(record: AnalysisResult) {
+        coroutineScope.launch {
+            if (backendManager.deleteAnalysis(record.imageName)) {
+                Log.i("HistoryScreen", "Deleted: ${record.imageName}")
+                loadData() // 重新加载数据
+            }
+            itemToDelete = null
+        }
+    }
+
     // 过滤逻辑
     val filteredHistory = when (selectedFilter) {
         "GOOD" -> analysisHistory.filter { it.quality.name == "GOOD" }
         "WARNING" -> analysisHistory.filter { it.quality.name == "WARNING" }
         "BAD" -> analysisHistory.filter { it.quality.name == "BAD" }
         else -> analysisHistory
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("清理不良记录") },
+            text = { Text("确定要删除所有质量为“BAD”的分析记录吗？此操作不可恢复。") },
+            confirmButton = {
+                TextButton(
+                    onClick = { deleteBadRecords() },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("确认删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+    if (itemToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { itemToDelete = null },
+            title = { Text("删除记录") },
+            text = { Text("确定要删除这条分析记录吗？\n${itemToDelete?.imageName}") },
+            confirmButton = {
+                TextButton(
+                    onClick = { itemToDelete?.let { deleteSingleRecord(it) } },
+                    colors = ButtonDefaults.textButtonColors(contentColor = Color.Red)
+                ) {
+                    Text("删除")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDelete = null }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -102,6 +191,15 @@ fun HistoryScreen(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     ) {
                         Text("← 返回")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showDeleteDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.DeleteSweep,
+                            contentDescription = "Clean Up",
+                            tint = Color.Red
+                        )
                     }
                 }
             )
@@ -126,6 +224,11 @@ fun HistoryScreen(
                 // 统计卡片
                 if (databaseStats != null) {
                     StatisticsCard(stats = databaseStats!!)
+                }
+
+                // 趋势图表 (仅在有数据时显示)
+                if (analysisHistory.isNotEmpty()) {
+                    TrendChart(data = analysisHistory)
                 }
 
                 // 筛选按钮
@@ -160,21 +263,98 @@ fun HistoryScreen(
                                 result = result,
                                 isSelected = selectedItem == result,
                                 onSelect = { selectedItem = it },
-                                onDelete = {
-                                    coroutineScope.launch {
-                                        val success = backendManager.deleteAnalysis(result.imageName)
-                                        if (success) {
-                                            analysisHistory = analysisHistory.filter {
-                                                it.imageName != result.imageName
-                                            }
-                                            Log.i("HistoryScreen", "Deleted: ${result.imageName}")
-                                        }
-                                    }
-                                }
+                                onDelete = { itemToDelete = result }
                             )
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * 趋势图表组件
+ * 使用 Canvas 绘制 SNR 随时间变化的折线图
+ */
+@Composable
+fun TrendChart(data: List<AnalysisResult>) {
+    // 按时间排序，取最近20条
+    val sortedData = remember(data) { 
+        data.sortedBy { it.timestamp }.takeLast(20) 
+    }
+    
+    if (sortedData.size < 2) return
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp)
+            .padding(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                "SNR 趋势 (最近20次)",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val width = size.width
+                val height = size.height
+                val padding = 20.dp.toPx()
+                
+                // 计算Y轴范围
+                val maxSnr = sortedData.maxOf { it.snr }.toFloat()
+                val minSnr = sortedData.minOf { it.snr }.toFloat()
+                val range = max(maxSnr - minSnr, 1f) // 防止除以0
+                
+                // 绘制坐标轴
+                drawLine(
+                    color = Color.LightGray,
+                    start = Offset(padding, padding),
+                    end = Offset(padding, height - padding),
+                    strokeWidth = 2f
+                )
+                drawLine(
+                    color = Color.LightGray,
+                    start = Offset(padding, height - padding),
+                    end = Offset(width - padding, height - padding),
+                    strokeWidth = 2f
+                )
+                
+                // 绘制折线
+                val path = Path()
+                val points = sortedData.mapIndexed { index, result ->
+                    val x = padding + (width - 2 * padding) * (index.toFloat() / (sortedData.size - 1))
+                    val y = height - padding - (height - 2 * padding) * ((result.snr.toFloat() - minSnr) / range)
+                    Offset(x, y)
+                }
+                
+                points.forEachIndexed { index, point ->
+                    if (index == 0) {
+                        path.moveTo(point.x, point.y)
+                    } else {
+                        path.lineTo(point.x, point.y)
+                    }
+                    // 绘制数据点
+                    drawCircle(
+                        color = Color(0xFF2196F3),
+                        radius = 4.dp.toPx(),
+                        center = point
+                    )
+                }
+                
+                drawPath(
+                    path = path,
+                    color = Color(0xFF2196F3),
+                    style = Stroke(width = 2.dp.toPx())
+                )
             }
         }
     }

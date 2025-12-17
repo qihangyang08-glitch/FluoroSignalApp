@@ -133,7 +133,20 @@ class CameraService(private val context: Context) {
                     if (continuation.isActive) continuation.resume(img)
                 }
             }, null)
-            session.capture(captureBuilder.build(), null, null)
+            
+            continuation.invokeOnCancellation {
+                try {
+                    reader.setOnImageAvailableListener(null, null)
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            }
+
+            try {
+                session.capture(captureBuilder.build(), null, null)
+            } catch (e: Exception) {
+                if (continuation.isActive) continuation.resumeWithException(e)
+            }
         }
 
         val imageBytes = yuvToRgbPngBytes(image)
